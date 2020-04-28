@@ -11,3 +11,5 @@ chmod +x $hookfile ;
 commitookfile=$(git rev-parse --show-toplevel)/.git/hooks/commit-msg ; 
 curl -sSL https://raw.githubusercontent.com/sohaha/git-hook/master/commit-msg -o $commitookfile ; 
 chmod +x $commitookfile ;
+
+echo "install done"
