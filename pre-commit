@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Introduce: https://github.com/sohaha/git-hook
+# Version:   v1.0.0
+
+# set -e
+
+FILES=$(git status --short | grep -E "^(A|M)" | awk '{print $2}' | xargs)
+if [[ -z "$FILES" ]]; then
+	exit 0
+fi 
+ 
+WRONG_FILES=$(file --mime-type ${FILES} | grep -v -E "(text/[A-Za-z0-9.+-]*|inode/(x-empty|directory|symlink)|application/json|image/svg\+xml)$" | cat)
+
+if [[ -n "${WRONG_FILES}" ]]; then
+	echo "DELETE NON-TEXT FILES OR USE 'git commit -n':"
+	echo -e "${WRONG_FILES}"
+	echo -e "\nIf there are any mistakes, please report to https://github.com/sohaha/git-hook/issues/new"
+	exit 1
+fi
+
+# echo "ALL FILES ARE TEXT:"
+# file --mime-type ${FILES}
+
+STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep ".go$")
+
+
+if [[ "$STAGED_GO_FILES" = "" ]]; then
+    exit 0
+fi
+
+PASS=true
+
+for FILE in $STAGED_GO_FILES
+do
+    if [[ $FILE == "vendor"* ]];then
+        continue
+    fi
+
+    # goimports -w $FILE
+    # if [[ $? != 0 ]]; then
+    #     PASS=false
+    # fi
+
+    # golint "-set_exit_status" $FILE
+    # if [[ $? == 1 ]]; then
+    #     PASS=false
+    # fi
+
+    go vet $FILE
+    if [[ $? != 0 ]]; then
+        PASS=false
+    fi
+
+    UNFORMATTED=$(gofmt -l $FILE)
+    if [[ "$UNFORMATTED" != "" ]];then
+        gofmt -w $PWD/$UNFORMATTED
+        if [[ $? != 0 ]]; then
+            PASS=false
+        fi
+    fi
+
+    git add $FILE
+
+done
+
+if ! $PASS; then
+    exit 1
+else
+    echo ""
+fi
